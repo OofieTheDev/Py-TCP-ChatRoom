@@ -51,10 +51,14 @@ def starter():
 
 NICKNAME = input("Nickname: ")
 
-if any(l in NICKNAME for l in req_chars):
+if any(l in NICKNAME for l in req_chars) and NICKNAME != "admin":
     client.connect(ADDR)
     send(f"NICK:{NICKNAME}")
-
+    starter()
+elif NICKNAME == "admin":
+    pw = input("Password:")
+    client.connect(ADDR)
+    send(f"admin:{pw}")
     starter()
 else:
     print("Illegal nickname.")
