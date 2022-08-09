@@ -2,25 +2,25 @@ import socket
 import threading
 import hashlib
 
-SERVER = '192.168.1.88'
+SERVER = '192.168.1.88' # private IP
 PORT = 12000
 INITIAL_HEADER = 64
 DC_MSG = "!DC"
-PW_HASH = "33bea234666b81088064d58f8f046d72986b100dd56b849caeb1113e918baea6"
+PW_HASH = "33bea234666b81088064d58f8f046d72986b100dd56b849caeb1113e918baea6" # sha256hash of admin password
 
 ADDR = (SERVER, PORT)
 
 FORMAT = 'utf-8'
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(ADDR)
+server.bind(ADDR) # bind socket to IP and Port
 
-clients = []
-nicknames = []
-admins = []
-bans = []
+clients = [] # connected clients
+nicknames = [] # client nicknames
+admins = [] # to store IP/Port of admins
+bans = [] # store IPs of banned users
 
-def validate(password):
+def validate(password): # checks if admin password is correct
     if hashlib.sha256(password.encode()).hexdigest() == PW_HASH:
         return True
     else:
@@ -31,10 +31,10 @@ def starter():
     print(f"Server has started on Port {PORT}")
     while True:
         conn, addr = server.accept()
-        thread = threading.Thread(target=client_handler, args=(conn, addr))
+        thread = threading.Thread(target=client_handler, args=(conn, addr)) # new thread for every connection to allow multiple clients
         thread.start()
 
-def broadcast(msg, author=None):
+def broadcast(msg, author=None): # sends a message to all clients
     if author:
         msg_len = len(f"{author}: {msg}".encode(FORMAT)) # get length of string when its encoded
         msg_len_encoded = str(msg_len).encode(FORMAT) # encode length of string
@@ -50,7 +50,7 @@ def broadcast(msg, author=None):
             client.send(msg_len_encoded)
             client.send(msg.encode(FORMAT))
 
-def send_msg_to_client(msg, user_conn):
+def send_msg_to_client(msg, user_conn): # send message to specific client
     msg = msg.encode(FORMAT) # encodes the message to bytes
     msg_len = len(msg) # gets the length of that encoded msg
     msg_len_encoded = str(msg_len).encode(FORMAT) # encodes the length of that encoded message
@@ -58,7 +58,7 @@ def send_msg_to_client(msg, user_conn):
     user_conn.send(msg_len_encoded) # sends the final encoding length with padding
     user_conn.send(msg) # sends the actual message
 
-def kick_user(user_name, user_conn):
+def kick_user(user_name, user_conn): # kick a user duh
     nicknames.remove(user_name)
     clients.remove(user_conn)
     send_msg_to_client("You have been kicked by an admin.", user_conn)
@@ -66,7 +66,7 @@ def kick_user(user_name, user_conn):
     print(f"[MOD ACTION] {user_name} has been kicked from the server.")
     broadcast(f"{user_name} has been kicked from the server.")
 
-def ban_user(user_name, user_conn, addr):
+def ban_user(user_name, user_conn, addr): # ban a user duh
     nicknames.remove(user_name)
     clients.remove(user_conn)
     bans.append(str(addr[0]))
@@ -76,7 +76,7 @@ def ban_user(user_name, user_conn, addr):
     broadcast(f"{user_name} has been banned from the server.")
 
 def client_handler(conn, addr):
-    if str(addr[0]) in bans:
+    if str(addr[0]) in bans: # if user's IP is banned, disconnect them
         conn.close()
         return
     print(f"[NEW CONNECTION][{addr[0]}][{addr[1]}] has joined the chat!")
@@ -84,7 +84,7 @@ def client_handler(conn, addr):
     connected = True
     try:
         while connected:
-            msg_len = conn.recv(INITIAL_HEADER).decode(FORMAT) # gets length of preceding message from client
+            msg_len = conn.recv(INITIAL_HEADER).decode(FORMAT) # gets length of next message from client
 
             if msg_len:
             # print(f"Msg LEN: {msg_len}")
@@ -109,7 +109,7 @@ def client_handler(conn, addr):
                         connected = False
                         break
 
-                if msg.startswith("NICK:"):
+                if msg.startswith("NICK:"): # to set clients' nicknames
                     nick = msg.replace("NICK:","")
                     if nick != "admin":
                         nicknames.append(nick)
@@ -118,7 +118,7 @@ def client_handler(conn, addr):
                         broadcast(f"{nick} has joined the chat!")
                         continue
                         
-                if msg.startswith("/"):
+                if msg.startswith("/"): # command evaluation
                     if f"{addr[0]}:{addr[1]}" in admins:
                         if msg.startswith("/kick"):
                             target_name = msg.replace("/kick ", "")
@@ -141,7 +141,7 @@ def client_handler(conn, addr):
             # print(target_client)
             # print(nicknames)
             
-                if msg == DC_MSG:
+                if msg == DC_MSG: # disconnect clients when they send !DC
                     conn.close()
                     clients.remove(conn)
                     broadcast(f"[CLIENT DISCONNECT - {nicknames[target_client]}]")
@@ -156,8 +156,5 @@ def client_handler(conn, addr):
     except ConnectionAbortedError:
         print("Connection abort detected.")
         pass
-
-
-
 
 starter()

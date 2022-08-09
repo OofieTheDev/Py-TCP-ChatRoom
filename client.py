@@ -2,13 +2,13 @@ import socket
 import threading
 import string
 
-req_chars = [x for x in string.ascii_letters + string.digits]
+req_chars = [x for x in string.ascii_letters + string.digits] # one of these chars needs to be in the nickname
 
-SERVER = '192.168.1.88' # put same IP and port as the server.py
-PORT = 12000
+SERVER = '192.168.1.88' # private IP
+PORT = 12000 
 FORMAT = 'utf-8'
 INITIAL_HEADER = 64
-DC_MSG = "!DC"
+DC_MSG = "!DC" # facilitates disconnect from server
 
 ADDR = (SERVER, PORT)
 
@@ -25,7 +25,7 @@ def send(msg):
 def recv_msg(): # for receiving messages
     while True:
         try:
-            msg_len = client.recv(INITIAL_HEADER).decode(FORMAT) # gets length of preceding message from client
+            msg_len = client.recv(INITIAL_HEADER).decode(FORMAT) # gets length of next message from client
             if msg_len: # if msg_len is received
                 msg_len = int(msg_len) # assume it is int and convert it as such
                 msg = client.recv(msg_len).decode(FORMAT) # receive the actual message using the given int length
@@ -35,7 +35,7 @@ def recv_msg(): # for receiving messages
             client.close()
             break
 
-def send_msgs():
+def send_msgs(): # for client to send msgs to chatroom
     while True:
         try:
             msg = input('')
