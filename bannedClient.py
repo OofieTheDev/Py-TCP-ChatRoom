@@ -5,7 +5,7 @@ import string
 req_chars = [x for x in string.ascii_letters + string.digits]
 
 SERVER = '192.168.1.88' # put same IP and port as the server.py
-PORT = 12000
+PORT = 57000
 FORMAT = 'utf-8'
 INITIAL_HEADER = 64
 DC_MSG = "!DC"
@@ -43,12 +43,9 @@ def send_msgs():
         except:
             send(DC_MSG)
 
-def startRecv():
+def starter():
     msg_recv = threading.Thread(target=recv_msg)
     msg_recv.start()
-    
-
-def startSending():
     msg_sender = threading.Thread(target=send_msgs)
     msg_sender.start()
 
@@ -57,16 +54,11 @@ NICKNAME = input("Nickname: ")
 if any(l in NICKNAME for l in req_chars) and NICKNAME != "admin":
     client.connect(ADDR)
     send(f"NICK:{NICKNAME}")
-    startRecv()
-    startSending()
+    starter()
 elif NICKNAME == "admin":
     pw = input("Password:")
     client.connect(ADDR)
     send(f"admin:{pw}")
-    startRecv()
-    startSending()
+    starter()
 else:
     print("Illegal nickname.")
-
-
-

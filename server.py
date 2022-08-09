@@ -1,11 +1,12 @@
 import socket
 import threading
-import logging
+import hashlib
 
 SERVER = '192.168.1.88'
 PORT = 12000
 INITIAL_HEADER = 64
 DC_MSG = "!DC"
+PW_HASH = "33bea234666b81088064d58f8f046d72986b100dd56b849caeb1113e918baea6"
 
 ADDR = (SERVER, PORT)
 
@@ -18,6 +19,12 @@ clients = []
 nicknames = []
 admins = []
 bans = []
+
+def validate(password):
+    if hashlib.sha256(password.encode()).hexdigest() == PW_HASH:
+        return True
+    else:
+        return False
 
 def starter():
     server.listen()
@@ -56,89 +63,99 @@ def kick_user(user_name, user_conn):
     clients.remove(user_conn)
     send_msg_to_client("You have been kicked by an admin.", user_conn)
     user_conn.close()
+    print(f"[MOD ACTION] {user_name} has been kicked from the server.")
     broadcast(f"{user_name} has been kicked from the server.")
 
 def ban_user(user_name, user_conn, addr):
     nicknames.remove(user_name)
     clients.remove(user_conn)
-    bans.append(f"{addr[0]:{addr[1]}}")
+    bans.append(str(addr[0]))
     send_msg_to_client("You have been banned by an admin.", user_conn)
     user_conn.close()
+    print(f"[MOD ACTION] {user_name} has been banned from the server.")
     broadcast(f"{user_name} has been banned from the server.")
 
 def client_handler(conn, addr):
-    if f"{addr[0]}:{addr[1]}" in bans:
-        send_msg_to_client("You are banned from this server.", conn)
+    if str(addr[0]) in bans:
         conn.close()
         return
     print(f"[NEW CONNECTION][{addr[0]}][{addr[1]}] has joined the chat!")
     clients.append(conn)
     connected = True
-    while connected:
-        msg_len = conn.recv(INITIAL_HEADER).decode(FORMAT) # gets length of preceding message from client
+    try:
+        while connected:
+            msg_len = conn.recv(INITIAL_HEADER).decode(FORMAT) # gets length of preceding message from client
 
-        if msg_len:
+            if msg_len:
             # print(f"Msg LEN: {msg_len}")
 
-            msg_len = int(msg_len)
-            msg = conn.recv(msg_len).decode(FORMAT)
+                msg_len = int(msg_len)
+                msg = conn.recv(msg_len).decode(FORMAT)
             
-            if msg.startswith("admin:"):
-                pw = msg.replace("admin:", "")
-                if pw == "admin":
-                    nicknames.append("admin")
-                    admins.append(addr[0] + ":" + addr[1])
-                    send_msg_to_client("Connected to the server", conn)
-                    broadcast(f"An admin has joined the chat!")
-                    continue
-                else:
-                    clients.remove(conn)
-                    send_msg_to_client("Incorrect password.", conn)
-                    conn.close()
-                    connected = False
-                    break
+                if msg.startswith("admin:"):
+                    pw = msg.replace("admin:", "")
+                    if validate(pw):
+                        nicknames.append("admin")
+                        admins.append(str(addr[0]) + ":" + str(addr[1]))
+                        print(f"[{addr[0]}][{addr[1]}] is an admin")
+                        send_msg_to_client("Connected to the server", conn)
+                        broadcast(f"An admin has joined the chat!")
+                        continue
+                    else:
+                        clients.remove(conn)
+                        send_msg_to_client("Incorrect password.", conn)
+                        conn.close()
+                        print(f"[CLIENT DISCONNECT - {addr[0]}:{addr[1]}]")
+                        connected = False
+                        break
 
-            if msg.startswith("NICK:"):
-                nick = msg.replace("NICK:","")
-                if nick != "admin":
-                    nicknames.append(nick)
-                    print(f'[{addr[0]}][{addr[1]}] set their nickname as "{nick}"')
-                    send_msg_to_client("Connected to the server", conn)
-                    broadcast(f"{nick} has joined the chat!")
-                    continue
+                if msg.startswith("NICK:"):
+                    nick = msg.replace("NICK:","")
+                    if nick != "admin":
+                        nicknames.append(nick)
+                        print(f'[{addr[0]}][{addr[1]}] set their nickname as "{nick}"')
+                        send_msg_to_client("Connected to the server", conn)
+                        broadcast(f"{nick} has joined the chat!")
+                        continue
                         
-            if msg.startswith("/"):
-                if f"{addr[0]}:{addr[1]}" in admins:
-                    if msg.startswith("/kick"):
-                        target_name = msg.replace("/kick ")
-                        if target_name in nicknames:
-                            target_index = nicknames.index(target_name)
-                            target_conn = clients[target_index]
-                            kick_user(target_name, target_conn)
+                if msg.startswith("/"):
+                    if f"{addr[0]}:{addr[1]}" in admins:
+                        if msg.startswith("/kick"):
+                            target_name = msg.replace("/kick ", "")
+                            if target_name in nicknames:
+                                target_index = nicknames.index(target_name)
+                                target_conn = clients[target_index]
+                                kick_user(target_name, target_conn)
+                                continue
                             
 
-                    if msg.startswith("/ban"):
-                        target_name = msg.replace("/ban ")
-                        if target_name in nicknames:
-                            target_index = nicknames.index(target_name)
-                            target_conn = clients[target_index]
-                            ban_user(target_name, target_conn, addr)
+                        if msg.startswith("/ban"):
+                            target_name = msg.replace("/ban ", "")
+                            if target_name in nicknames:
+                                target_index = nicknames.index(target_name)
+                                target_conn = clients[target_index]
+                                ban_user(target_name, target_conn, addr)
+                                continue
 
-            target_client = clients.index(conn)
+                target_client = clients.index(conn)
             # print(target_client)
             # print(nicknames)
             
-            if msg == DC_MSG:
-                conn.close()
-                broadcast(f"[CLIENT DISCONNECT - {nicknames[target_client]}]")
-                print(f"[CLIENT DISCONNECT - {nicknames[target_client]}]")
-                connected = False
-                break
+                if msg == DC_MSG:
+                    conn.close()
+                    clients.remove(conn)
+                    broadcast(f"[CLIENT DISCONNECT - {nicknames[target_client]}]")
+                    print(f"[CLIENT DISCONNECT - {nicknames[target_client]}]")
+                    connected = False
+                    break
 
-            print(f"{nicknames[target_client]}: {msg}")
+                print(f"{nicknames[target_client]}: {msg}")
             
-            broadcast(msg, nicknames[target_client])
-    conn.close()
+                broadcast(msg, nicknames[target_client])
+        conn.close()
+    except ConnectionAbortedError:
+        print("Connection abort detected.")
+        pass
 
 
 
