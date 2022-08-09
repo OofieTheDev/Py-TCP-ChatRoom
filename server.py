@@ -84,16 +84,16 @@ def client_handler(conn, addr):
             msg = conn.recv(msg_len).decode(FORMAT)
             
             if msg.startswith("admin:"):
-                pw = msg.replace("admin:")
+                pw = msg.replace("admin:", "")
                 if pw == "admin":
                     nicknames.append("admin")
                     admins.append(addr[0] + ":" + addr[1])
-                    conn.send("Connected to the server.".encode(FORMAT))
+                    send_msg_to_client("Connected to the server", conn)
                     broadcast(f"An admin has joined the chat!")
                     continue
                 else:
                     clients.remove(conn)
-                    conn.send("Incorrect password.".encode(FORMAT))
+                    send_msg_to_client("Incorrect password.", conn)
                     conn.close()
                     connected = False
                     break
@@ -103,7 +103,7 @@ def client_handler(conn, addr):
                 if nick != "admin":
                     nicknames.append(nick)
                     print(f'[{addr[0]}][{addr[1]}] set their nickname as "{nick}"')
-                    conn.send("Connected to the server.".encode(FORMAT))
+                    send_msg_to_client("Connected to the server", conn)
                     broadcast(f"{nick} has joined the chat!")
                     continue
                         
