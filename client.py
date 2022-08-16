@@ -1,5 +1,6 @@
 import socket
 import threading
+from getpass import getpass
 import string
 
 req_chars = [x for x in string.ascii_letters + string.digits] # one of these chars needs to be in the nickname
@@ -60,7 +61,7 @@ if any(l in NICKNAME for l in req_chars) and NICKNAME != "admin":
     startRecv()
     startSending()
 elif NICKNAME == "admin":
-    pw = input("Password:")
+    pw = getpass("Password: ")
     client.connect(ADDR)
     send(f"admin:{pw}")
     startRecv()
